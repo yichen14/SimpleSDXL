@@ -34,11 +34,28 @@ import enhanced.location as location
 import enhanced.wildcards as wildcards
 from enhanced.models_info import models_info, sync_model_info_click 
 
+RED_WORDS_PATH="/ocean/projects/cis210027p/ylu9/others/SimpleSDXL/red_words/red_words.txt"
+
+def get_red_words():
+    red_words = []
+    with open(RED_WORDS_PATH, 'r') as f:
+        for line in f:
+            red_words.append(line.strip())
+    return red_words
+
 def get_task(*args):
     args = list(args)
     args.pop(0)
 
     return worker.AsyncTask(args=args)
+
+def check_red_words(prompt):
+    red_words = get_red_words()
+    for word in red_words:
+        if word in prompt:
+            gr.error(f"Red word '{word}' detected in prompt, please remove it.")
+            return True
+    return False
 
 def generate_clicked(task: worker.AsyncTask):
     import ldm_patched.modules.model_management as model_management
@@ -909,6 +926,7 @@ with shared.gradio_root:
         protections = [prompt, random_button, translator_button, super_prompter, background_theme] + nav_bars[1:]
         generate_button.click(topbar.process_before_generation, inputs=state_topbar, outputs=[stop_button, skip_button, generate_button, gallery, state_is_generating, index_radio, image_tools_checkbox] + protections, show_progress=False) \
             .then(fn=refresh_seed, inputs=[seed_random, image_seed], outputs=image_seed) \
+            .then(fn=check_red_words, inputs=[prompt], outputs=[]) \
             .then(fn=get_task, inputs=ctrls, outputs=currentTask) \
             .then(enhanced_parameters.set_all_enhanced_parameters, inputs=ehps) \
             .then(fn=generate_clicked, inputs=currentTask, outputs=[progress_html, progress_window, progress_gallery, gallery]) \
